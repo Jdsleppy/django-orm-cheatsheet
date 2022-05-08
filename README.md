@@ -3,7 +3,7 @@
 If you wanted to read a lot of text you'd be reading the Django docs, especially these pages:
 
 - [Queryset API (select_related, bulk_update, etc.)](https://docs.djangoproject.com/en/dev/ref/models/querysets/)
-- [Query Expressions (SubQuery, F, annotate, aggregate, etc.)](https://docs.djangoproject.com/en/dev/ref/models/expressions/)
+- [Query Expressions (Subquery, F, annotate, aggregate, etc.)](https://docs.djangoproject.com/en/dev/ref/models/expressions/)
 - [Aggregation](https://docs.djangoproject.com/en/dev/topics/db/aggregation/)
 - [Database Functions](https://docs.djangoproject.com/en/dev/ref/models/database-functions/)
 
@@ -192,7 +192,7 @@ Many parts of the Django ORM expect a [query expression](https://docs.djangoproj
 
 - references to fields (possibly on related objects) `F()`
 - SQL functions like `CASE`, `NOW`, etc.
-- Subqueries with `SubQuery()`
+- Subqueries with `Subquery()`
 
 ### `F()`
 
@@ -239,9 +239,49 @@ entries = Entry.objects.annotate(
 #  'Entry 4141 is not cool']
 ```
 
-### `SubQuery()` and `OuterRef()`
+### `Subquery()` and `OuterRef()`
 
-To come later. `SubQuery()` is great when you need it, but that is not so often. Send me some hate mail if you need this.
+Annotate each blog with the headline of the most recent entry.
+
+This pattern is the only use for `Subquery()` I have ever found: query a \*-to-many relation, `OuterRef("pk")` to "join" the rows, use `values()` to return one column and `[:1]` to return one row from the subquery. This is basically a copy of the example in the Django docs.
+
+```python
+blogs = Blog.objects.annotate(
+    most_recent_headline=Subquery(
+        Entry.objects.filter(blog=OuterRef("pk"))
+        .order_by("-pub_date")
+        .values("headline")[:1]
+    )
+)
+[(blog, str(blog.most_recent_headline)) for blog in blogs[:5]]
+# SELECT
+#   "blog_blog"."id",
+#   "blog_blog"."name",
+#   "blog_blog"."tagline",
+#   (
+#     SELECT
+#       U0."headline"
+#     FROM
+#       "blog_entry" U0
+#     WHERE
+#       U0."blog_id" = ("blog_blog"."id")
+#     ORDER BY
+#       U0."pub_date" DESC
+#     LIMIT
+#       1
+#   ) AS "most_recent_headline"
+# FROM
+#   "blog_blog"
+# LIMIT
+#   5;
+
+
+# [(<Blog: Robinson-Wilson>, 'Three space maintain subject much.'),
+#  (<Blog: Anderson PLC>, 'Rock authority enjoy hundred reduce behavior.'),
+#  (<Blog: Mcneil PLC>, 'Visit beyond base.'),
+#  (<Blog: Smith, Baker and Rodriguez>, 'Tree look culture minute affect.'),
+#  (<Blog: George-Bray>, 'Then produce tree quality top similar.')]
+```
 
 # Select less data
 
