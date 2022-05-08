@@ -121,8 +121,8 @@ entry = Entry.objects.prefetch_related("authors").first()
 # WHERE "blog_entry_authors"."entry_id" IN (4137);
 
 authors = list(entry.authors.all())
-# no query is run because we have an in-memory lookup of the relevant authors
-# from above
+# no query is run because we have an in-memory
+# lookup of the relevant authors from above
 ```
 
 ## `update()`
@@ -130,7 +130,11 @@ authors = list(entry.authors.all())
 ### without `update()`
 
 ```python
-david = Author.objects.filter(name__startswith="David").prefetch_related("entry_set").first()
+david = (
+    Author.objects.filter(name__startswith="David")
+    .prefetch_related("entry_set")
+    .first()
+)
 # SELECT ... FROM "blog_author" WHERE "blog_author"."name" LIKE 'David%' ...;
 # SELECT ... FROM "blog_entry" INNER JOIN "blog_entry_authors" ...;
 
@@ -139,8 +143,8 @@ david = Author.objects.filter(name__startswith="David").prefetch_related("entry_
 for entry in david.entry_set.all():
     entry.rating = 5
     entry.save()
-# One query for each Entry.
-# Even if we used bulk_update(), we're still making more queries than we need.
+# One query for each Entry. Even if we used bulk_update(),
+# we're still making more queries than we need.
 ```
 
 ### with `update()`
@@ -177,7 +181,9 @@ entries = Entry.objects.annotate(blog_name=F("blog__name"))[:5]
 Use `Q()` to do more filtering in the database, and less in your application.
 
 ```python
-low_engagement_posts = Entry.objects.filter(Q(number_of_comments__lt=20) | Q(number_of_pingbacks__lt=20))
+low_engagement_posts = Entry.objects.filter(
+    Q(number_of_comments__lt=20) | Q(number_of_pingbacks__lt=20)
+)
 
 list(low_engagement_posts)
 # SELECT ... FROM "blog_entry"
@@ -202,8 +208,11 @@ The classic example is an increment, but recall that `F()` can be used anywhere 
 Entry.objects.filter(authors__name__startswith="David").first().rating
 # 5
 
-Entry.objects.filter(authors__name__startswith="David").update(rating=F("rating") - 1)
-# UPDATE "blog_entry" SET "rating" = ("blog_entry"."rating" - 1) WHERE ...;
+Entry.objects.filter(authors__name__startswith="David").update(
+    rating=F("rating") - 1
+)
+# UPDATE "blog_entry"
+#   SET "rating" = ("blog_entry"."rating" - 1) WHERE ...;
 
 Entry.objects.filter(authors__name__startswith="David").first().rating
 # 4
@@ -290,7 +299,9 @@ blogs = Blog.objects.annotate(
 Select the specified fields only, as dictionaries. You can also select annotations, like this:
 
 ```python
-Entry.objects.annotate(num_authors=Count("authors")).values("rating", "num_authors")[:5]
+Entry.objects.annotate(num_authors=Count("authors")).values(
+    "rating", "num_authors"
+)[:5]
 # SELECT
 #   "blog_entry"."rating",
 #   COUNT("blog_entry_authors"."author_id") AS "num_authors"
@@ -308,8 +319,14 @@ Entry.objects.annotate(num_authors=Count("authors")).values("rating", "num_autho
 If you need a yes/no answer that something exists, this is faster than fetching the whole row.
 
 ```python
-unrealistic_data_exists = Entry.objects.filter(mod_date__lt=F("pub_date")).exists()
-# SELECT (1) AS "a" FROM "blog_entry" WHERE "blog_entry"."mod_date" < ("blog_entry"."pub_date") LIMIT 1;
+unrealistic_data_exists = Entry.objects.filter(
+    mod_date__lt=F("pub_date")
+).exists()
+# SELECT
+#  (1) AS "a"
+#   FROM "blog_entry"
+#   WHERE "blog_entry"."mod_date" < ("blog_entry"."pub_date")
+#   LIMIT 1;
 
 unrealistic_data_exists
 # True
